@@ -1,1 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
+<title>北海道メロン祭り</title>
+
+<style>
+
+body{
+    margin:0;
+    overflow:hidden;
+    background:linear-gradient(#9be15d,#00c47c);
+    font-family:sans-serif;
+    touch-action:none;
+}
+
+#topUI{
+    height:70px;
+    background:#fff5d9;
+    border-bottom:5px solid #8b5a2b;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+    font-size:22px;
+    font-weight:bold;
+    color:#5b3b00;
+}
+
+#game{
+    background:#fff8ea;
+    display:block;
+    margin:auto;
+    border-left:8px solid #8b5a2b;
+    border-right:8px solid #8b5a2b;
+}
+
+#message{
+    position:absolute;
+    top:90px;
+    width:100%;
+    text-align:center;
+    font-size:34px;
+    font-weight:bold;
+    color:#fff;
+    text-shadow:3px 3px #ff6600;
+    pointer-events:none;
+}
+
+#controls{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    height:110px;
+    background:#fff5d9;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:15px;
+    border-top:5px solid #8b5a2b;
+}
+
+.ctrl{
+    width:70px;
+    height:70px;
+    border-radius:20px;
+    border:none;
+    font-size:32px;
+    background:#ffb347;
+    color:white;
+    font-weight:bold;
+    box-shadow:0 5px #d97d00;
+}
+
+.ctrl:active{
+    transform:translateY(4px);
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="topUI">
+<div>🍈 出荷: <span id="score">0</span></div>
+<div>🌈 連鎖祭り</div>
+</div>
+
+<div id="message"></div>
+
+<canvas id="game"></canvas>
+
+<div id="controls">
+<button class="ctrl" onclick="move(-1)">◀</button>
+<button class="ctrl" onclick="rotatePiece()">🔄</button>
+<button class="ctrl" onclick="move(1)">▶</button>
+<button class="ctrl" onclick="dropFast()">⬇</button>
+</div>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const COLS = 10;
+const ROWS = 20;
+const SIZE = Math.floor(window.innerWidth / 10);
+
+canvas.width = COLS * SIZE;
+canvas.height = ROWS * SIZE;
+
+const fruits = ["🍈","🍓","🍊","🍇","🥝"];
+
+const shapes = [
+    [[1,1],[1,1]],
+    [[1,1,1,1]],
+    [[1,1,1],[0,1,0]],
+    [[1,1,0],[0,1,1]],
+    [[0,1,1],[1,1,0]]
+];
+
+let board = Array.from({length:ROWS},
+()=>Array(COLS).fill(""));
+
+let score = 0;
+
+function createPiece(){
+
+    return{
+        x:3,
+        y:0,
+        shape:shapes[Math.floor(Math.random()*shapes.length)],
+        fruit:fruits[Math.floor(Math.random()*fruits.length)]
+    }
+}
+
+let piece = createPiece();
+
+function drawBoard(){
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    for(let y=0;y<ROWS;y++){
+
+        for(let x=0;x<COLS;x++){
+
+            ctx.strokeStyle="#ddd";
+
+            ctx.strokeRect(
+                x*SIZE,
+                y*SIZE,
+                SIZE,
+                SIZE
+            );
+
+            if(board[y][x]){
+
+                ctx.font=(SIZE-4)+"px serif";
+
+                ctx.fillText(
+                    board[y][x],
+                    x*SIZE+2,
+                    y*SIZE+SIZE-4
+                );
+            }
+        }
+    }
+}
+
+function drawPiece(){
+
+    piece.shape.forEach((row,dy)=>{
+
+        row.forEach((v,dx)=>{
+
+            if(v){
+
+                ctx.font=(SIZE-4)+"px serif";
+
+                ctx.fillText(
+                    piece.fruit,
+                    (piece.x+dx)*SIZE+2,
+                    (piece.y+dy)*SIZE+SIZE-4
+                );
+            }
+        });
+    });
+}
+
+function collide(){
+
+    for(let y=0;y<piece.shape.length;y++){
+
+        for(let x=0;x<piece.shape[y].length;x++){
+
+            if(piece.shape[y][x]){
+
+                let nx = piece.x+x;
+                let ny = piece.y+y;
+
+                if(
+                    nx<0 ||
+                    nx>=COLS ||
+                    ny>=ROWS ||
+                    (ny>=0 && board[ny][nx])
+                ){
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+function merge(){
+
+    piece.shape.forEach((row,dy)=>{
+
+        row.forEach((v,dx)=>{
+
+            if(v){
+
+                board[piece.y+dy][piece.x+dx]
+                    = piece.fruit;
+            }
+        });
+    });
+}
+
+function clearLines(){
+
+    let lines = 0;
+
+    for(let y=ROWS-1;y>=0;y--){
+
+        if(board[y].every(c=>c!="")){
+
+            board.splice(y,1);
+
+            board.unshift(
+                Array(COLS).fill("")
+            );
+
+            lines++;
+            y++;
+        }
+    }
+
+    if(lines){
+
+        score += lines;
+
+        document.getElementById("score")
+            .innerText = score;
+
+        const msgs = [
+            "🍈 北海道ぉぉ！！",
+            "📦 全国発送！！",
+            "✨ 夕張メローーン！！",
+            "🌈 北海道フィーバー！！",
+            "🐻 熊出没注意！！"
+        ];
+
+        showMessage(
+            msgs[Math.floor(Math.random()*msgs.length)]
+        );
+    }
+}
+
+function showMessage(text){
+
+    const m = document.getElementById("message");
+
+    m.innerText = text;
+
+    setTimeout(()=>{
+        m.innerText="";
+    },1500);
+}
+
+function update(){
+
+    piece.y++;
+
+    if(collide()){
+
+        piece.y--;
+
+        merge();
+
+        clearLines();
+
+        piece = createPiece();
+
+        if(collide()){
+
+            alert("🍈 ゲームオーバー！");
+
+            board = Array.from(
+                {length:ROWS},
+                ()=>Array(COLS).fill("")
+            );
+
+            score = 0;
+
+            document.getElementById("score")
+                .innerText = 0;
+        }
+    }
+
+    draw();
+}
+
+function draw(){
+
+    drawBoard();
+
+    drawPiece();
+}
+
+function move(dir){
+
+    piece.x += dir;
+
+    if(collide()) piece.x -= dir;
+
+    draw();
+}
+
+function rotatePiece(){
+
+    const rotated =
+        piece.shape[0].map((_,i)=>
+            piece.shape.map(r=>r[i]).reverse()
+        );
+
+    const old = piece.shape;
+
+    piece.shape = rotated;
+
+    if(collide()){
+        piece.shape = old;
+    }
+
+    draw();
+}
+
+function dropFast(){
+
+    update();
+}
+
+setInterval(update,700);
+
+draw();
+
+</script>
+
+</body>
+</html>
